@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HiveFlow — HIVE Transfer Explorer V1</title>
+<meta name="description" content="HiveFlow is a lightweight HIVE transfer explorer. Search any Hive account, filter IN/OUT and amount.">
+<style>
+:root{--bg:#f6f2eb;--outer:#e8e2d8;--card:#fff;--border:#e8e0d4;--text:#1e1c18;--muted:#8f8a82;--pill:#f2ece3;--accent:#111;--green:#0a7a42;--green-bg:#e6f6ee;--red:#a81f2d;--red-bg:#fde8e8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Inter,sans-serif}
+.top{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--outer);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.brand{font-weight:900;font-size:13px;letter-spacing:.05em}.brand span{color:var(--muted);font-weight:700}
+.top-actions{display:flex;gap:8px}
+.btn{height:32px;border-radius:99px;border:1px solid var(--border);padding:0 14px;font-weight:800;font-size:12px;cursor:pointer;background:var(--card);color:var(--text)}
+.btn-p{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.wrap{max-width:760px;margin:0 auto;padding:16px 14px 40px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:14px}
+.row{display:flex;gap:8px}
+input.main{flex:1;height:44px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);padding:0 14px;font-size:14px;text-transform:lowercase}
+.sentence{margin-top:12px;background:var(--pill);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px}
+.sentence select,.sentence input{height:30px;border-radius:99px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:12px;font-weight:700;padding:0 10px}
+.sentence input{width:90px;text-transform:none}.sentence input:disabled{opacity:.3}
+.status{margin-top:10px;font-size:11px;color:var(--muted);font-family:monospace}
+.list{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.item{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 12px}
+.item-top{display:flex;justify-content:space-between}
+.badge{padding:3px 8px;border-radius:99px;font-size:11px;font-weight:900}
+.badge-in{background:var(--green-bg);color:var(--green)}.badge-out{background:var(--red-bg);color:var(--red)}
+.amount{font-weight:900}.user{font-family:monospace;font-size:12px;background:var(--pill);border:1px solid var(--border);border-radius:99px;padding:3px 8px;cursor:pointer}
+.user:hover{background:var(--accent);color:var(--bg)}
+.memo{font-size:11px;color:var(--muted);background:var(--pill);border-radius:8px;padding:5px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:6px;cursor:pointer}
+.memo.expanded{white-space:pre-wrap}
+.mono{font-family:monospace;font-size:11px}.muted{color:var(--muted)}
+.footer{margin-top:28px;text-align:center;font-size:12px;color:var(--muted)}
+.footer a{color:var(--text);font-weight:800;text-decoration:none;border-bottom:1px dashed var(--border)}
+/* FAQ modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(4px);z-index:50;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:18px;max-width:560px;width:100%;max-height:85vh;overflow:auto;padding:18px}
+.modal h2{margin:0 0 12px;font-size:16px}
+.modal details{border-top:1px solid var(--border);padding:10px 0}
+.modal details:first-of-type{border-top:0}.modal summary{font-weight:800;font-size:13px;cursor:pointer;list-style:none}.modal summary::-webkit-details-marker{display:none}
+.modal p{margin:6px 0 0;font-size:12px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--accent);color:var(--bg);font-size:12px;font-weight:700;padding:8px 14px;border-radius:99px;opacity:0;transition:.2s;z-index:99}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand">HIVEFLOW <span>— V1</span></div>
+  <div class="top-actions"><button class="btn" id="btnFaq">FAQ</button><span class="btn" style="pointer-events:none">HIVE only</span></div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <div class="row"><input id="username" class="main" placeholder="hive username, e.g. hbd.funder"><button id="btnSearch" class="btn-p" style="height:44px;border-radius:12px;padding:0 18px">Search</button></div>
+    <div class="sentence" id="sentence" style="display:none">
+      Show <select id="sDir"><option value="ALL">All</option><option value="IN">IN only</option><option value="OUT">OUT only</option></select>
+      that are <select id="sOp"><option value="ANY">any amount</option><option value="<">less than</option><option value=">">more than</option></select>
+      <input id="sVal" type="number" step="0.001" placeholder="0.5" disabled> HIVE
+    </div>
+    <div class="status" id="status">Ready. Click @user in results to copy.</div>
+  </div>
+  <div class="list" id="list"></div>
+  <div id="loader" style="text-align:center;padding:16px;display:none" class="muted mono">Scanning blockchain...</div>
+  <div id="sentinel" style="height:1px"></div>
+  <div class="footer">Built by <a href="https://ecency.com/@pancasona" target="_blank" rel="noopener noreferrer">@pancasona</a> • HiveFlow V1 FIX</div>
+</div>
+
+<!-- FAQ Overlay -->
+<div class="overlay" id="faqOverlay">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h2>FAQ — HiveFlow V1</h2><button class="btn" id="closeFaq">✕ Close</button></div>
+    <details open><summary>What does HiveFlow do?</summary><p>Fast, lightweight explorer for HIVE transfers only (not HBD). Scans account history via public Hive RPCs and lets you filter by direction and amount.</p></details>
+    <details><summary>How to filter IN &lt; 0.5 HIVE?</summary><p>Search a username, then set: Show = IN only, that are = less than, value = 0.5. List auto-filters. Great for finding dust tips or bot tests.</p></details>
+    <details><summary>Why only HIVE?</summary><p>Intentionally filters out HBD and other ops to keep focus on HIVE flow analysis.</p></details>
+    <details><summary>How does copy work?</summary><p>Click the @username pill in each card to copy. Click memo to expand.</p></details>
+    <details><summary>Is private data exposed?</summary><p>No. Uses public condenser_api.get_account_history. No login, no keys.</p></details>
+    <details><summary>Why does scroll stop?</summary><p>V1 loads ~100 HIVE transfers first for speed. Keep scrolling to scan deeper history.</p></details>
+    <div style="margin-top:14px;font-size:11px;color:var(--muted)" class="mono">Credits: <a href="https://ecency.com/@pancasona" target="_blank" rel="noopener noreferrer" style="color:var(--text);font-weight:800">@pancasona</a></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const RPCS=["https://anyx.io","https://api.deathwing.me","https://api.hive.blog"];
+let username="", nextFrom=-1, allFound=[], bufferQueue=[], totalFound=0, isFetching=false, reachedGenesis=false;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const ui=$("username");
+ui.addEventListener("input",()=>{ ui.value=ui.value.toLowerCase().replace(/[^a-z0-9.-]/g,""); });
+function fmtDate(s){ try{const d=new Date(s+"Z"); return d.toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return s} }
+async function call(m,p){ for(const url of RPCS){ try{const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:m,params:p})}); const j=await r.json(); if(j.result) return j.result;}catch{} } throw new Error("RPC failed"); }
+function parseAmt(s){ const m=s.match(/([\d.]+)/); return m?parseFloat(m[1]):0; }
+function toRow(e){ const idx=e[0],d=e[1]; if(!d||!d.op||d.op[0]!=="transfer") return null; const v=d.op[1]; if(!v.amount||!v.amount.includes("HIVE")) return null; if(v.from!==username&&v.to!==username) return null; return {idx,data:d,v,amt:parseAmt(v.amount),dir:v.to===username?"IN":"OUT"}; }
+function passes(it){ const dir=$("sDir").value, op=$("sOp").value, val=parseFloat($("sVal").value); if(dir!=="ALL"&&it.dir!==dir) return false; if(op!=="ANY"&&val>0){ if(op==="<"&&!(it.amt<val)) return false; if(op===">"&&!(it.amt>val)) return false; } return true; }
+function copyUser(n){ navigator.clipboard.writeText(n).then(()=>{ const t=$("toast"); t.textContent=`copied @${n}`; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1200); }); }
+function render(it){ const badge=it.dir==="IN"?`<span class="badge badge-in">IN</span>`:`<span class="badge badge-out">OUT</span>`; const other=it.dir==="IN"?it.v.from:it.v.to; const arrow=it.dir==="IN"?"←":"→"; const memo=(it.v.memo||"(no memo)").trim(); return `<div class="item"><div class="item-top"><span class="mono muted">${esc(fmtDate(it.data.timestamp))} • #${it.idx}</span><span class="amount">${esc(it.v.amount)}</span></div><div style="margin-top:6px;display:flex;gap:6px;align-items:center">${badge} <span class="mono">${arrow}</span> <span class="user" onclick="copyUser('${esc(other)}')">@${esc(other)}</span></div><div class="memo" onclick="this.classList.toggle('expanded')">${esc(memo)}</div></div>`; }
+function rebuild(){ const f=allFound.filter(passes); $("list").innerHTML=""; const first=f.slice(0,15); let h=""; for(const it of first) h+=render(it); $("list").innerHTML=h; bufferQueue=f.slice(15); $("status").textContent=f.length? `Found ${totalFound} total • ${f.length} match • showing ${first.length}` : `Scanned ${totalFound} • no matches`; }
+function flush(n){ const t=Math.min(n,bufferQueue.length); let h=""; for(let i=0;i<t;i++) h+=render(bufferQueue.shift()); $("list").insertAdjacentHTML("beforeend",h); }
+async function backgroundFill(){ if(isFetching||reachedGenesis) return; isFetching=true; $("loader").style.display="block"; try{ while(!reachedGenesis){ const res=await call("condenser_api.get_account_history",[username,nextFrom,1000]); if(!res||!res.length){reachedGenesis=true;break;} for(let i=res.length-1;i>=0;i--){ const it=toRow(res[i]); if(it){ allFound.push(it); totalFound++; } } nextFrom=res[0][0]-1; if(res[0][0]===0){reachedGenesis=true;break;} if(nextFrom<0){reachedGenesis=true;break;} if(allFound.length>=100) break; } }finally{ isFetching=false; $("loader").style.display="none"; rebuild(); } }
+async function startSearch(){ const u=ui.value.trim().toLowerCase().replace(/[^a-z0-9.-]/g,""); if(u.length<3){alert("Enter username");return;} username=u; nextFrom=-1; allFound=[]; bufferQueue=[]; totalFound=0; reachedGenesis=false; $("list").innerHTML=""; $("sentence").style.display="flex"; $("status").textContent=`Searching @${username}...`; await backgroundFill(); }
+$("sDir").onchange=rebuild; $("sOp").onchange=()=>{ const op=$("sOp").value; $("sVal").disabled=op==="ANY"; if(op==="ANY") $("sVal").value=""; rebuild(); }; $("sVal").oninput=rebuild;
+$("btnSearch").onclick=startSearch; ui.addEventListener("keydown",e=>{if(e.key==="Enter") startSearch();});
+const obs=new IntersectionObserver(e=>{ if(e[0].isIntersecting&&bufferQueue.length) flush(10); },{rootMargin:"400px"}); obs.observe($("sentinel"));
+// FAQ toggle in header
+$("btnFaq").onclick=()=>{$("faqOverlay").classList.add("show")};
+$("closeFaq").onclick=()=>{$("faqOverlay").classList.remove("show")};
+$("faqOverlay").onclick=(e)=>{ if(e.target===$("faqOverlay")) $("faqOverlay").classList.remove("show"); };
+</script>
+</body>
+</html>
